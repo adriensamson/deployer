@@ -20,8 +20,12 @@ impl Deployement {
     fn new() -> Deployement {
         Deployement {
             base_dir: current_dir().unwrap(),
-            release: String::new(),
+            release: get_date_str(),
         }
+    }
+
+    fn get_release_path(&self) -> PathBuf {
+        self.base_dir.join("releases").join(&self.release)
     }
 
     fn do_install(&self) -> io::Result<()> {
@@ -36,7 +40,7 @@ impl Deployement {
         if current_path.exists() {
             remove_file(&current_path)?;
         }
-        symlink(&self.base_dir.join("releases").join(&self.release), &current_path)?;
+        symlink(self.get_release_path(), &current_path)?;
         self.do_hook("switch")
     }
 
@@ -46,12 +50,12 @@ impl Deployement {
             let parts : Vec<&str> = line.split_whitespace().collect();
             match parts.as_slice() {
                 [from, to] => {
-                    let dest_path = self.base_dir.join("releases").join(&self.release).join(to);
+                    let dest_path = self.get_release_path().join(to);
                     create_dir_all(dest_path.parent().unwrap())?;
                     symlink(self.base_dir.join("shared").join(from), dest_path)?;
                 },
                 [path] => {
-                    let dest_path = self.base_dir.join("releases").join(&self.release).join(path);
+                    let dest_path = self.get_release_path().join(path);
                     create_dir_all(dest_path.parent().unwrap())?;
                     symlink(self.base_dir.join("shared").join(path), dest_path)?;
                 }
@@ -66,11 +70,19 @@ impl Deployement {
         let path = self.base_dir.join(format!("deployer.{}", hook));
         if path.exists() {
             Command::new(path)
-                .arg(&self.release)
+                .current_dir(self.get_release_path())
                 .status()
                 .unwrap();
             // FIXME : check status code
         }
         Ok(())
     }
+}
+
+fn get_date_str() -> String {
+    let output = Command::new("date")
+        .arg("+%Y-%m-%d-%H-%M-%S")
+        .output()
+        .unwrap();
+    String::from(String::from_utf8(output.stdout).unwrap().trim())
 }
