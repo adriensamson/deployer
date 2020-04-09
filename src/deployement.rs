@@ -1,9 +1,6 @@
 use crate::installation_method::InstallationMethod;
-use std::env::current_dir;
-use std::fs::{create_dir_all};
-use std::io;
-use std::process::Command;
 use crate::release::Release;
+use crate::error::Result;
 
 pub struct Deployement<'a, IM : InstallationMethod> {
     release : Release<'a>,
@@ -20,7 +17,7 @@ impl<'a, IM : InstallationMethod> Deployement<'a, IM> {
 }
 
 impl<IM : InstallationMethod> Deployement<'_, IM> {
-    pub fn run(&self) -> io::Result<()> {
+    pub fn run(&self) -> Result<()> {
         self.installation_method.install_to(self.release.get_release_path())?;
 
         self.release.do_links()?;
