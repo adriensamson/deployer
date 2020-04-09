@@ -23,6 +23,15 @@ struct Opt {
     /// Timestamp (sec, ms, ns, none)
     #[structopt(long = "timestamp")]
     ts: Option<stderrlog::Timestamp>,
+
+    #[structopt(subcommand)]
+    cmd: Option<Cmd>,
+}
+
+#[derive(StructOpt, Debug)]
+enum Cmd {
+    Deploy,
+    Rollback,
 }
 
 fn main() {
@@ -37,6 +46,13 @@ fn main() {
         .unwrap();
 
     let project = Project::from_current_dir().unwrap();
-    project.deploy(NoopInstallationMethod {}).unwrap();
-    project.rollback().unwrap();
+
+    match opt.cmd.unwrap_or(Cmd::Deploy) {
+        Cmd::Deploy => {
+            project.deploy(NoopInstallationMethod {}).unwrap();
+        }
+        Cmd::Rollback => {
+            project.rollback().unwrap();
+        }
+    }
 }
