@@ -4,10 +4,10 @@ use std::fs::{read_dir, read_link};
 use crate::release::Release;
 use crate::installation_method::InstallationMethod;
 use std::process::Command;
-use crate::deployement::Deployement;
 use crate::error::{Result, Error};
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
+use crate::error::Error::RuntimeError;
 
 pub struct Project {
     pub(crate) base_dir : PathBuf,
@@ -22,14 +22,35 @@ impl Project {
     }
 
     pub fn rollback(&self) -> Result<()> {
-        let release = Release::new(&self, find_rollback(&self.base_dir).unwrap().unwrap());
-        release.do_switch()
+        let rollback_to = find_rollback(&self.base_dir)?;
+        match rollback_to {
+            None => {
+                error!("No release to rollback");
+                Err(RuntimeError(String::from("Cannot rollback")))
+            },
+            Some(path) => {
+                info!("Rollbacking to {:?}", path);
+                let release = Release::new(&self, path);
+                release.do_switch()?;
+                info!("Rollback OK");
+                Ok(())
+            }
+        }
     }
 
     pub fn deploy<IM : InstallationMethod>(&self, im : IM) -> Result<()> {
-        let release = Release::new(&self, get_date_str()?);
-        let deployement = Deployement::new(release, im);
-        deployement.run()
+        let release_path = get_date_str()?;
+        info!("Installing to {:?}", release_path);
+        let release = Release::new(&self, release_path);
+
+        im.install_to(release.get_release_path())?;
+
+        release.do_links()?;
+        release.do_hook("install")?;
+        release.do_switch()?;
+
+        info!("Deploy OK");
+        Ok(())
     }
 }
 

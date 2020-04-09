@@ -5,6 +5,7 @@ use std::os::unix::fs::symlink;
 use crate::project::Project;
 use crate::error::Result;
 use std::ffi::OsString;
+use crate::error::Error::RuntimeError;
 
 pub struct Release<'a> {
     project : &'a Project,
@@ -32,11 +33,13 @@ impl Release<'_> {
         if current_path.exists() {
             remove_file(&current_path)?;
         }
+        info!("switch current");
         symlink(self.get_release_path(), &current_path)?;
         self.do_hook("switch")
     }
 
     pub fn do_links(&self) -> Result<()> {
+        info!("Creating links");
         let links = read_to_string(self.project.base_dir.join("deployer.links")).unwrap_or(String::from(""));
         for line in links.lines() {
             let parts : Vec<&str> = line.split_whitespace().collect();
@@ -59,13 +62,18 @@ impl Release<'_> {
     }
 
     pub fn do_hook(&self, hook : &str) -> Result<()> {
+        info!("Running {} hook", hook);
         let path = self.project.base_dir.join(format!("deployer.{}", hook));
         if path.exists() {
-            Command::new(path)
+            let status = Command::new(path)
                 .current_dir(self.get_release_path())
-                .status()
-                .unwrap();
-            // FIXME : check status code
+                .status()?;
+            if !status.success() {
+                error!("{} hook failed", hook);
+                return Err(RuntimeError(String::from("Hook failed")));
+            }
+        } else {
+            info!("No hook");
         }
         Ok(())
     }

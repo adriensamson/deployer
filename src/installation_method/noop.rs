@@ -1,11 +1,12 @@
 use crate::installation_method::InstallationMethod;
 use std::path::PathBuf;
-use std::io;
+use crate::error::Result;
 
 pub struct NoopInstallationMethod {}
 
 impl InstallationMethod for NoopInstallationMethod {
-    fn install_to(&self, _path : PathBuf) -> io::Result<()> {
+    fn install_to(&self, _path : PathBuf) -> Result<()> {
+        info!("NOOP");
         Ok(())
     }
 }
