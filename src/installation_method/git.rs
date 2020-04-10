@@ -33,13 +33,13 @@ impl InstallationMethod for GitInstallationMethod {
             .args(&["clone", "--no-local", "--depth", "1", "--recurse-submodules", "--branch", &self.branch, &self.source_dir, path_as_str])
             .status()
             .map_err(IoError)
-            .and_then(|s| if s.success() { Ok(())} else { Err(RuntimeError(String::from("Error running git fetch")))})?;
+            .and_then(|s| if s.success() { Ok(())} else { Err(RuntimeError(String::from("Error running git clone")))})?;
         info!("GIT rm .git");
         Command::new("find")
             .args(&[path_as_str, "-name", ".git", "-exec", "rm", "-rf", "{}", "+"])
             .status()
             .map_err(IoError)
-            .and_then(|s| if s.success() { Ok(())} else { Err(RuntimeError(String::from("Error running git fetch")))})?;
+            .and_then(|s| if s.success() { Ok(())} else { Err(RuntimeError(String::from("Error running rm .git")))})?;
         Ok(())
     }
 }
