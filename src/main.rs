@@ -37,6 +37,7 @@ enum Cmd {
     Rollback,
     InitNoop,
     InitGit,
+    InitTar,
 }
 
 fn main() -> Result<()> {
@@ -63,6 +64,15 @@ fn main() -> Result<()> {
                 installation_method: InstallationMethodConfig::Git {
                     source_dir: String::from("sources"),
                     branch: String::from("master")
+                },
+            };
+            Project::init(&config)?;
+            return Ok(());
+        },
+        Cmd::InitTar => {
+            let config = ProjectConfig {
+                installation_method: InstallationMethodConfig::Tar {
+                    filename: String::from("archive.tar.gz"),
                 },
             };
             Project::init(&config)?;
