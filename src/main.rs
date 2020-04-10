@@ -3,6 +3,8 @@ extern crate log;
 extern crate stderrlog;
 #[macro_use]
 extern crate structopt;
+extern crate toml;
+extern crate serde;
 
 use structopt::StructOpt;
 mod error;
@@ -11,8 +13,9 @@ mod installation_method;
 mod project;
 
 use installation_method::noop::NoopInstallationMethod;
-use crate::project::Project;
+use crate::project::{Project, ProjectConfig};
 use crate::error::Result;
+use crate::installation_method::InstallationMethodConfig;
 
 #[derive(StructOpt, Debug)]
 #[structopt()]
@@ -33,6 +36,7 @@ struct Opt {
 enum Cmd {
     Deploy,
     Rollback,
+    Init,
 }
 
 fn main() -> Result<()> {
@@ -46,13 +50,20 @@ fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let project = Project::from_current_dir().unwrap();
-
     match opt.cmd.unwrap_or(Cmd::Deploy) {
+        Cmd::Init => {
+            let config = ProjectConfig {
+                installation_method: InstallationMethodConfig::Noop,
+            };
+            Project::init(&config)?;
+            return Ok(());
+        },
         Cmd::Deploy => {
-            project.deploy(NoopInstallationMethod {})
+            let project = Project::from_current_dir()?;
+            project.deploy()
         }
         Cmd::Rollback => {
+            let project = Project::from_current_dir()?;
             project.rollback()
         }
     }

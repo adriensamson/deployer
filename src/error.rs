@@ -15,3 +15,9 @@ impl std::convert::From<io::Error> for Error {
         Error::IoError(err)
     }
 }
+
+impl std::convert::From<toml::de::Error> for Error {
+    fn from(_err : toml::de::Error) -> Error {
+        Error::ConfigError(String::from("Error while parsing config"))
+    }
+}

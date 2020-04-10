@@ -1,23 +1,39 @@
 use std::path::{PathBuf, Path};
 use std::env::current_dir;
-use std::fs::{read_dir, read_link};
+use std::fs::{read_dir, read_link, write, read_to_string};
 use crate::release::{Release, ReleaseState};
-use crate::installation_method::InstallationMethod;
+use crate::installation_method::{InstallationMethod, installation_method_from_config, InstallationMethodConfig};
 use std::process::Command;
 use crate::error::{Result, Error};
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
-use crate::error::Error::RuntimeError;
+use crate::error::Error::{RuntimeError, ConfigError, IoError};
+use serde::{Deserialize, Serialize};
+use std::io::ErrorKind;
 
 pub struct Project {
     pub(crate) base_dir : PathBuf,
+    installation_method : Box<dyn InstallationMethod>,
 }
 
 impl Project {
     pub fn from_current_dir() -> Result<Project> {
         let base_dir = current_dir()?;
+        let file_content = read_to_string(base_dir.join("deployer.toml"))
+            .map_err(| err| if err.kind() == ErrorKind::NotFound { ConfigError(String::from("deployer.toml not found"))} else { IoError(err) })?;
+        let config : ProjectConfig = toml::from_str(&file_content)?;
         Ok(Project {
             base_dir,
+            installation_method: installation_method_from_config(&config.installation_method),
+        })
+    }
+
+    pub fn init(config : &ProjectConfig) -> Result<Project> {
+        let base_dir = current_dir()?;
+        write(base_dir.join("deployer.toml"), toml::to_string(config).unwrap())?;
+        Ok(Project {
+            base_dir,
+            installation_method: installation_method_from_config(&config.installation_method),
         })
     }
 
@@ -43,12 +59,12 @@ impl Project {
         }
     }
 
-    pub fn deploy<IM : InstallationMethod>(&self, im : IM) -> Result<()> {
+    pub fn deploy(&self) -> Result<()> {
         let release_path = ReleaseState::Installing.new_path_for(&get_date_str()?);
         info!("Installing to {:?}", release_path);
         let mut release = Release::new(&self, release_path);
 
-        im.install_to(release.get_release_path())?;
+        self.installation_method.install_to(release.get_release_path())?;
 
         release.do_links()?;
         release.do_hook("install")?;
@@ -97,4 +113,9 @@ fn get_date_str() -> Result<OsString> {
     let mut stdout = output.stdout;
     stdout.pop();
     Ok(OsString::from_vec(stdout))
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ProjectConfig {
+    pub installation_method: InstallationMethodConfig,
 }

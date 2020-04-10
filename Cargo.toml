@@ -10,3 +10,5 @@ edition = "2018"
 log = "0.4.8"
 stderrlog = "0.4.3"
 structopt = "0.3.13"
+toml = "0.5.6"
+serde = {version = "1.0.106", features = ["derive"]}
