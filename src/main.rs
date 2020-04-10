@@ -12,7 +12,6 @@ mod release;
 mod installation_method;
 mod project;
 
-use installation_method::noop::NoopInstallationMethod;
 use crate::project::{Project, ProjectConfig};
 use crate::error::Result;
 use crate::installation_method::InstallationMethodConfig;
@@ -36,7 +35,8 @@ struct Opt {
 enum Cmd {
     Deploy,
     Rollback,
-    Init,
+    InitNoop,
+    InitGit,
 }
 
 fn main() -> Result<()> {
@@ -51,9 +51,19 @@ fn main() -> Result<()> {
         .unwrap();
 
     match opt.cmd.unwrap_or(Cmd::Deploy) {
-        Cmd::Init => {
+        Cmd::InitNoop => {
             let config = ProjectConfig {
                 installation_method: InstallationMethodConfig::Noop,
+            };
+            Project::init(&config)?;
+            return Ok(());
+        },
+        Cmd::InitGit => {
+            let config = ProjectConfig {
+                installation_method: InstallationMethodConfig::Git {
+                    source_dir: String::from("sources"),
+                    branch: String::from("master")
+                },
             };
             Project::init(&config)?;
             return Ok(());

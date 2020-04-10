@@ -1,6 +1,6 @@
-use std::path::{PathBuf, Path};
+use std::path::PathBuf;
 use std::env::current_dir;
-use std::fs::{read_dir, read_link, write, read_to_string};
+use std::fs::{read_dir, read_link, write, read_to_string, create_dir_all};
 use crate::release::{Release, ReleaseState};
 use crate::installation_method::{InstallationMethod, installation_method_from_config, InstallationMethodConfig};
 use std::process::Command;
@@ -31,6 +31,8 @@ impl Project {
     pub fn init(config : &ProjectConfig) -> Result<Project> {
         let base_dir = current_dir()?;
         write(base_dir.join("deployer.toml"), toml::to_string(config).unwrap())?;
+        create_dir_all(base_dir.join("releases"))?;
+        create_dir_all(base_dir.join("shared"))?;
         Ok(Project {
             base_dir,
             installation_method: installation_method_from_config(&config.installation_method),

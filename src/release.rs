@@ -1,9 +1,9 @@
 use std::path::PathBuf;
-use std::fs::{remove_file, read_to_string, create_dir_all, read_link, rename};
+use std::fs::{remove_file, read_to_string, create_dir_all, rename};
 use std::process::Command;
 use std::os::unix::fs::symlink;
 use crate::project::Project;
-use crate::error::{Result, Error};
+use crate::error::Result;
 use std::ffi::{OsString, OsStr};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::ffi::OsStringExt;
