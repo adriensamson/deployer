@@ -22,8 +22,8 @@ impl Project {
     }
 
     pub fn rollback(&self) -> Result<()> {
-        let current = read_link(self.base_dir.join("current")).map_or(None, Some).map(|p| OsString::from(p.file_name().unwrap()));
-        let rollback_to = find_rollback(&self.base_dir)?;
+        let current = self.read_current().map(|p| OsString::from(p.file_name().unwrap()));
+        let rollback_to = self.find_rollback()?;
         match rollback_to {
             None => {
                 error!("No release to rollback");
@@ -58,27 +58,33 @@ impl Project {
         info!("Deploy OK");
         Ok(())
     }
-}
 
-fn find_rollback(base_dir : &Path) -> Result<Option<OsString>> {
-    let current = read_link(base_dir.join("current")).map_or(None, Some);
-    let mut entries = Vec::new();
-    for res in read_dir(base_dir.join("releases"))? {
-        if let Ok(entry) = res {
-            if Some(entry.path()) == current {
-                continue;
-            }
-            let filename = entry.file_name();
-            let state = ReleaseState::from_path(&filename);
-            if state == ReleaseState::Normal {
-                entries.push(entry.file_name());
+    pub(crate) fn read_current(&self) -> Option<PathBuf> {
+        read_link(self.base_dir.join("current")).map_or(None, Some)
+    }
+
+    fn find_rollback(&self) -> Result<Option<OsString>> {
+        let current = self.read_current();
+        let mut entries = Vec::new();
+        for res in read_dir(self.base_dir.join("releases"))? {
+            if let Ok(entry) = res {
+                if Some(entry.path()) == current {
+                    continue;
+                }
+                let filename = entry.file_name();
+                let state = ReleaseState::from_path(&filename);
+                if state == ReleaseState::Normal {
+                    entries.push(entry.file_name());
+                }
             }
         }
+        entries.sort_by(|a, b| a.cmp(b).reverse());
+        entries.truncate(1);
+        Ok(entries.pop())
     }
-    entries.sort_by(|a, b| a.cmp(b).reverse());
-    entries.truncate(1);
-    Ok(entries.pop())
 }
+
+
 
 fn get_date_str() -> Result<OsString> {
     let output = Command::new("date")

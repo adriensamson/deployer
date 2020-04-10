@@ -117,7 +117,7 @@ impl Release<'_> {
     }
 
     pub fn change_state(&mut self, state : ReleaseState) -> Result<()> {
-        let current = read_link(self.project.base_dir.join("current")).map_or(None, Some);
+        let current = self.project.read_current();
         if current == Some(self.get_release_path()) {
             return Err(RuntimeError(String::from("Cannot change state of current release")));
         }
