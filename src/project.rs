@@ -1,7 +1,7 @@
 use std::path::{PathBuf, Path};
 use std::env::current_dir;
 use std::fs::{read_dir, read_link};
-use crate::release::Release;
+use crate::release::{Release, ReleaseState};
 use crate::installation_method::InstallationMethod;
 use std::process::Command;
 use crate::error::{Result, Error};
@@ -22,6 +22,7 @@ impl Project {
     }
 
     pub fn rollback(&self) -> Result<()> {
+        let current = read_link(self.base_dir.join("current")).map_or(None, Some).map(|p| OsString::from(p.file_name().unwrap()));
         let rollback_to = find_rollback(&self.base_dir)?;
         match rollback_to {
             None => {
@@ -33,20 +34,25 @@ impl Project {
                 let release = Release::new(&self, path);
                 release.do_switch()?;
                 info!("Rollback OK");
+                if let Some(old_release) = current {
+                    let mut old = Release::new(&self, old_release);
+                    old.change_state(ReleaseState::Rollbacked)?;
+                }
                 Ok(())
             }
         }
     }
 
     pub fn deploy<IM : InstallationMethod>(&self, im : IM) -> Result<()> {
-        let release_path = get_date_str()?;
+        let release_path = ReleaseState::Installing.new_path_for(&get_date_str()?);
         info!("Installing to {:?}", release_path);
-        let release = Release::new(&self, release_path);
+        let mut release = Release::new(&self, release_path);
 
         im.install_to(release.get_release_path())?;
 
         release.do_links()?;
         release.do_hook("install")?;
+        release.change_state(ReleaseState::Normal)?;
         release.do_switch()?;
 
         info!("Deploy OK");
@@ -62,7 +68,11 @@ fn find_rollback(base_dir : &Path) -> Result<Option<OsString>> {
             if Some(entry.path()) == current {
                 continue;
             }
-            entries.push(entry.file_name());
+            let filename = entry.file_name();
+            let state = ReleaseState::from_path(&filename);
+            if state == ReleaseState::Normal {
+                entries.push(entry.file_name());
+            }
         }
     }
     entries.sort_by(|a, b| a.cmp(b).reverse());

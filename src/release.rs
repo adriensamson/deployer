@@ -1,21 +1,56 @@
 use std::path::PathBuf;
-use std::fs::{remove_file, read_to_string, create_dir_all};
+use std::fs::{remove_file, read_to_string, create_dir_all, read_link, rename};
 use std::process::Command;
 use std::os::unix::fs::symlink;
 use crate::project::Project;
-use crate::error::Result;
-use std::ffi::OsString;
+use crate::error::{Result, Error};
+use std::ffi::{OsString, OsStr};
+use std::os::unix::ffi::OsStrExt;
+use std::os::unix::ffi::OsStringExt;
 use crate::error::Error::RuntimeError;
+
+#[derive(Eq, PartialEq)]
+pub enum ReleaseState {
+    Normal,
+    Installing,
+    Rollbacked,
+}
+
+impl ReleaseState {
+    pub fn from_path(path : &OsStr) -> ReleaseState {
+        match path.as_bytes()[0] as char {
+            'i' => ReleaseState::Installing,
+            'r' => ReleaseState::Rollbacked,
+            _ => ReleaseState::Normal,
+        }
+    }
+
+    pub fn new_path_for(&self, path : &OsStr) -> OsString {
+        let mut vec = Vec::from(path.as_bytes());
+        match vec[0] as char {
+            'i' | 'r' => { vec.remove(0); }
+            _ => {}
+        }
+        match self {
+            ReleaseState::Normal => {},
+            ReleaseState::Rollbacked => { vec.insert(0, 'r' as u8) }
+            ReleaseState::Installing => { vec.insert(0, 'i' as u8) }
+        }
+        OsString::from_vec(vec)
+    }
+}
 
 pub struct Release<'a> {
     project : &'a Project,
     release : OsString,
+    state : ReleaseState,
 }
 
 impl<'a> Release<'a> {
     pub(crate) fn new(project: &'a Project, release: OsString) -> Release<'a> {
         let r = Release {
             project,
+            state: ReleaseState::from_path(&release),
             release,
         };
         create_dir_all(r.get_release_path()).unwrap();
@@ -29,6 +64,9 @@ impl Release<'_> {
     }
 
     pub fn do_switch(&self) -> Result<()> {
+        if self.state != ReleaseState::Normal {
+            return Err(RuntimeError(String::from("Cannot switch release")));
+        }
         let current_path = self.project.base_dir.join("current");
         if current_path.exists() {
             remove_file(&current_path)?;
@@ -75,6 +113,19 @@ impl Release<'_> {
         } else {
             info!("No hook");
         }
+        Ok(())
+    }
+
+    pub fn change_state(&mut self, state : ReleaseState) -> Result<()> {
+        let current = read_link(self.project.base_dir.join("current")).map_or(None, Some);
+        if current == Some(self.get_release_path()) {
+            return Err(RuntimeError(String::from("Cannot change state of current release")));
+        }
+        let new_path = state.new_path_for(&self.release);
+        info!("Renaming {:?} to {:?}", self.release, &new_path);
+        rename(self.get_release_path(), self.project.base_dir.join("releases").join(&new_path))?;
+        self.release = new_path;
+        self.state = state;
         Ok(())
     }
 }

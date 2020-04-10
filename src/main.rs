@@ -12,6 +12,7 @@ mod project;
 
 use installation_method::noop::NoopInstallationMethod;
 use crate::project::Project;
+use crate::error::Result;
 
 #[derive(StructOpt, Debug)]
 #[structopt()]
@@ -34,7 +35,7 @@ enum Cmd {
     Rollback,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let opt = Opt::from_args();
 
     stderrlog::new()
@@ -49,10 +50,10 @@ fn main() {
 
     match opt.cmd.unwrap_or(Cmd::Deploy) {
         Cmd::Deploy => {
-            project.deploy(NoopInstallationMethod {}).unwrap();
+            project.deploy(NoopInstallationMethod {})
         }
         Cmd::Rollback => {
-            project.rollback().unwrap();
+            project.rollback()
         }
     }
 }
