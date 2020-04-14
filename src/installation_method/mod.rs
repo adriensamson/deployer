@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 use crate::error::Result;
 use crate::installation_method::noop::NoopInstallationMethod;
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ mod git;
 mod tar;
 
 pub trait InstallationMethod {
-    fn install_to(&self, path : PathBuf) -> Result<()>;
+    fn install_to(&self, base_dir : &Path, path : &Path) -> Result<()>;
 }
 
 pub fn installation_method_from_config(config : &InstallationMethodConfig) -> Box<dyn InstallationMethod> {

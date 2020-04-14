@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::env::current_dir;
 use std::fs::{read_dir, read_link, write, read_to_string, create_dir_all};
 use crate::release::{Release, ReleaseState};
 use crate::installation_method::{InstallationMethod, installation_method_from_config, InstallationMethodConfig};
@@ -17,8 +16,7 @@ pub struct Project {
 }
 
 impl Project {
-    pub fn from_current_dir() -> Result<Project> {
-        let base_dir = current_dir()?;
+    pub fn from_dir(base_dir : PathBuf) -> Result<Project> {
         let file_content = read_to_string(base_dir.join("deployer.toml"))
             .map_err(| err| if err.kind() == ErrorKind::NotFound { ConfigError(String::from("deployer.toml not found"))} else { IoError(err) })?;
         let config : ProjectConfig = toml::from_str(&file_content)?;
@@ -28,8 +26,7 @@ impl Project {
         })
     }
 
-    pub fn init(config : &ProjectConfig) -> Result<Project> {
-        let base_dir = current_dir()?;
+    pub fn init(base_dir : PathBuf, config : &ProjectConfig) -> Result<Project> {
         write(base_dir.join("deployer.toml"), toml::to_string(config).unwrap())?;
         create_dir_all(base_dir.join("releases"))?;
         create_dir_all(base_dir.join("shared"))?;
@@ -66,7 +63,7 @@ impl Project {
         info!("Installing to {:?}", release_path);
         let mut release = Release::new(&self, release_path);
 
-        self.installation_method.install_to(release.get_release_path())?;
+        self.installation_method.install_to(&self.base_dir, &release.get_release_path())?;
 
         release.do_links()?;
         release.do_hook("install")?;

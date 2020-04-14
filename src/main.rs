@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate log;
 extern crate stderrlog;
-#[macro_use]
 extern crate structopt;
 extern crate toml;
 extern crate serde;
@@ -15,6 +14,7 @@ mod project;
 use crate::project::{Project, ProjectConfig};
 use crate::error::Result;
 use crate::installation_method::InstallationMethodConfig;
+use std::env::current_dir;
 
 #[derive(StructOpt, Debug)]
 #[structopt()]
@@ -26,6 +26,8 @@ struct Opt {
     /// Timestamp (sec, ms, ns, none)
     #[structopt(long = "timestamp")]
     ts: Option<stderrlog::Timestamp>,
+    #[structopt(short = "C", long)]
+    change_dir: Option<String>,
 
     #[structopt(subcommand)]
     cmd: Option<Cmd>,
@@ -51,12 +53,17 @@ fn main() -> Result<()> {
         .init()
         .unwrap();
 
+    let mut base_dir = current_dir()?;
+    if let Some(dir) = opt.change_dir {
+        base_dir = base_dir.join(dir);
+    }
+
     match opt.cmd.unwrap_or(Cmd::Deploy) {
         Cmd::InitNoop => {
             let config = ProjectConfig {
                 installation_method: InstallationMethodConfig::Noop,
             };
-            Project::init(&config)?;
+            Project::init(base_dir, &config)?;
             return Ok(());
         },
         Cmd::InitGit => {
@@ -66,7 +73,7 @@ fn main() -> Result<()> {
                     branch: String::from("master")
                 },
             };
-            Project::init(&config)?;
+            Project::init(base_dir, &config)?;
             return Ok(());
         },
         Cmd::InitTar => {
@@ -75,15 +82,15 @@ fn main() -> Result<()> {
                     filename: String::from("archive.tar.gz"),
                 },
             };
-            Project::init(&config)?;
+            Project::init(base_dir, &config)?;
             return Ok(());
         },
         Cmd::Deploy => {
-            let project = Project::from_current_dir()?;
+            let project = Project::from_dir(base_dir)?;
             project.deploy()
         }
         Cmd::Rollback => {
-            let project = Project::from_current_dir()?;
+            let project = Project::from_dir(base_dir)?;
             project.rollback()
         }
     }
