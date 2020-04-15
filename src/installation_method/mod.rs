@@ -22,7 +22,7 @@ pub fn installation_method_from_config(config : &InstallationMethodConfig) -> Bo
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum InstallationMethodConfig {
     Noop,
     Git { source_dir : String, branch : String},
