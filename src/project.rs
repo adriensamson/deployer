@@ -1,33 +1,43 @@
-use std::path::PathBuf;
-use std::fs::{read_dir, read_link, write, read_to_string, create_dir_all};
+use crate::error::Error::{ConfigError, IoError, RuntimeError};
+use crate::error::{Error, Result};
+use crate::installation_method::{
+    installation_method_from_config, InstallationMethod, InstallationMethodConfig,
+};
 use crate::release::{Release, ReleaseState};
-use crate::installation_method::{InstallationMethod, installation_method_from_config, InstallationMethodConfig};
-use std::process::Command;
-use crate::error::{Result, Error};
-use std::ffi::OsString;
-use std::os::unix::ffi::OsStringExt;
-use crate::error::Error::{RuntimeError, ConfigError, IoError};
 use serde::{Deserialize, Serialize};
+use std::ffi::OsString;
+use std::fs::{create_dir_all, read_dir, read_link, read_to_string, write};
 use std::io::ErrorKind;
+use std::os::unix::ffi::OsStringExt;
+use std::path::PathBuf;
+use std::process::Command;
 
 pub struct Project {
-    pub(crate) base_dir : PathBuf,
-    installation_method : Box<dyn InstallationMethod>,
+    pub(crate) base_dir: PathBuf,
+    installation_method: Box<dyn InstallationMethod>,
 }
 
 impl Project {
-    pub fn from_dir(base_dir : PathBuf) -> Result<Project> {
-        let file_content = read_to_string(base_dir.join("deployer.toml"))
-            .map_err(| err| if err.kind() == ErrorKind::NotFound { ConfigError(String::from("deployer.toml not found"))} else { IoError(err) })?;
-        let config : ProjectConfig = toml::from_str(&file_content)?;
+    pub fn from_dir(base_dir: PathBuf) -> Result<Project> {
+        let file_content = read_to_string(base_dir.join("deployer.toml")).map_err(|err| {
+            if err.kind() == ErrorKind::NotFound {
+                ConfigError(String::from("deployer.toml not found"))
+            } else {
+                IoError(err)
+            }
+        })?;
+        let config: ProjectConfig = toml::from_str(&file_content)?;
         Ok(Project {
             base_dir,
             installation_method: installation_method_from_config(&config.installation_method),
         })
     }
 
-    pub fn init(base_dir : PathBuf, config : &ProjectConfig) -> Result<Project> {
-        write(base_dir.join("deployer.toml"), toml::to_string(config).unwrap())?;
+    pub fn init(base_dir: PathBuf, config: &ProjectConfig) -> Result<Project> {
+        write(
+            base_dir.join("deployer.toml"),
+            toml::to_string(config).unwrap(),
+        )?;
         create_dir_all(base_dir.join("releases"))?;
         create_dir_all(base_dir.join("shared"))?;
         Ok(Project {
@@ -37,13 +47,15 @@ impl Project {
     }
 
     pub fn rollback(&self) -> Result<()> {
-        let current = self.read_current().map(|p| OsString::from(p.file_name().unwrap()));
+        let current = self
+            .read_current()
+            .map(|p| OsString::from(p.file_name().unwrap()));
         let rollback_to = self.find_rollback()?;
         match rollback_to {
             None => {
                 error!("No release to rollback");
                 Err(RuntimeError(String::from("Cannot rollback")))
-            },
+            }
             Some(path) => {
                 info!("Rollbacking to {:?}", path);
                 let release = Release::new(&self, path);
@@ -63,7 +75,8 @@ impl Project {
         info!("Installing to {:?}", release_path);
         let mut release = Release::new(&self, release_path);
 
-        self.installation_method.install_to(&self.base_dir, &release.get_release_path())?;
+        self.installation_method
+            .install_to(&self.base_dir, &release.get_release_path())?;
 
         release.do_links()?;
         release.do_hook("install")?;
@@ -98,8 +111,6 @@ impl Project {
         Ok(entries.pop())
     }
 }
-
-
 
 fn get_date_str() -> Result<OsString> {
     let output = Command::new("date")

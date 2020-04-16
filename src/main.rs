@@ -1,19 +1,19 @@
 #[macro_use]
 extern crate log;
+extern crate serde;
 extern crate stderrlog;
 extern crate structopt;
 extern crate toml;
-extern crate serde;
 
 use structopt::StructOpt;
 mod error;
-mod release;
 mod installation_method;
 mod project;
+mod release;
 
-use crate::project::{Project, ProjectConfig};
 use crate::error::Result;
 use crate::installation_method::InstallationMethodConfig;
+use crate::project::{Project, ProjectConfig};
 use std::env::current_dir;
 
 #[derive(StructOpt, Debug)]
@@ -65,17 +65,17 @@ fn main() -> Result<()> {
             };
             Project::init(base_dir, &config)?;
             return Ok(());
-        },
+        }
         Cmd::InitGit => {
             let config = ProjectConfig {
                 installation_method: InstallationMethodConfig::Git {
                     source_dir: String::from("sources"),
-                    branch: String::from("master")
+                    branch: String::from("master"),
                 },
             };
             Project::init(base_dir, &config)?;
             return Ok(());
-        },
+        }
         Cmd::InitTar => {
             let config = ProjectConfig {
                 installation_method: InstallationMethodConfig::Tar {
@@ -84,7 +84,7 @@ fn main() -> Result<()> {
             };
             Project::init(base_dir, &config)?;
             return Ok(());
-        },
+        }
         Cmd::Deploy => {
             let project = Project::from_dir(base_dir)?;
             project.deploy()
