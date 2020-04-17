@@ -41,6 +41,7 @@ enum Cmd {
     InitGit,
     InitTar,
     Clean,
+    UpgradeConfig,
 }
 
 fn main() -> Result<()> {
@@ -60,6 +61,10 @@ fn main() -> Result<()> {
     }
 
     match opt.cmd.unwrap_or(Cmd::Deploy) {
+        Cmd::UpgradeConfig => {
+            Project::upgrade_config(&base_dir)?;
+            Ok(())
+        }
         Cmd::InitNoop => {
             let config = ProjectConfig {
                 installation_method: InstallationMethodConfig::Noop,

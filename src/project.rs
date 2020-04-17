@@ -9,7 +9,7 @@ use std::ffi::OsString;
 use std::fs::{create_dir_all, read_dir, read_link, read_to_string, remove_dir_all, write};
 use std::io::ErrorKind;
 use std::os::unix::ffi::OsStringExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 pub struct Project {
@@ -47,6 +47,22 @@ impl Project {
             installation_method: installation_method_from_config(&config.installation_method),
             clean_config: config.clean,
         })
+    }
+
+    pub fn upgrade_config(base_dir: &Path) -> Result<()> {
+        let file_content = read_to_string(base_dir.join("deployer.toml")).map_err(|err| {
+            if err.kind() == ErrorKind::NotFound {
+                ConfigError(String::from("deployer.toml not found"))
+            } else {
+                IoError(err)
+            }
+        })?;
+        let config: ProjectConfig = toml::from_str(&file_content)?;
+        write(
+            base_dir.join("deployer.toml"),
+            toml::to_string(&config).unwrap(),
+        )?;
+        Ok(())
     }
 
     pub fn rollback(&self) -> Result<()> {
