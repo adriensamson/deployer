@@ -6,7 +6,7 @@ use crate::installation_method::{
 use crate::release::{Release, ReleaseState};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
-use std::fs::{create_dir_all, read_dir, read_link, read_to_string, write};
+use std::fs::{create_dir_all, read_dir, read_link, read_to_string, remove_dir_all, write};
 use std::io::ErrorKind;
 use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
@@ -15,6 +15,7 @@ use std::process::Command;
 pub struct Project {
     pub(crate) base_dir: PathBuf,
     installation_method: Box<dyn InstallationMethod>,
+    clean_config: CleanConfig,
 }
 
 impl Project {
@@ -30,6 +31,7 @@ impl Project {
         Ok(Project {
             base_dir,
             installation_method: installation_method_from_config(&config.installation_method),
+            clean_config: config.clean,
         })
     }
 
@@ -43,6 +45,7 @@ impl Project {
         Ok(Project {
             base_dir,
             installation_method: installation_method_from_config(&config.installation_method),
+            clean_config: config.clean,
         })
     }
 
@@ -84,6 +87,39 @@ impl Project {
         release.do_switch()?;
 
         info!("Deploy OK");
+        if self.clean_config.auto_clean {
+            self.clean()?;
+        }
+        Ok(())
+    }
+
+    pub fn clean(&self) -> Result<()> {
+        let current = self.read_current();
+        let mut to_clean = Vec::new();
+        let mut keepable = Vec::new();
+        for res in read_dir(self.base_dir.join("releases"))? {
+            if let Ok(entry) = res {
+                if Some(entry.path()) == current {
+                    info!("Keep current release {:?}", entry.file_name());
+                    continue;
+                }
+                let filename = entry.file_name();
+                let state = ReleaseState::from_path(&filename);
+                if state == ReleaseState::Normal {
+                    keepable.push(entry.file_name());
+                } else {
+                    to_clean.push(entry.file_name());
+                }
+            }
+        }
+        keepable.sort_by(|a, b| a.cmp(b).reverse());
+        if keepable.len() > self.clean_config.keep_releases {
+            to_clean.append(&mut keepable.split_off(self.clean_config.keep_releases));
+        }
+        for r in to_clean {
+            info!("rm {:?}", &r);
+            remove_dir_all(self.base_dir.join("releases").join(r))?
+        }
         Ok(())
     }
 
@@ -127,5 +163,22 @@ fn get_date_str() -> Result<OsString> {
 
 #[derive(Serialize, Deserialize)]
 pub struct ProjectConfig {
+    #[serde(default)]
+    pub clean: CleanConfig,
     pub installation_method: InstallationMethodConfig,
+}
+
+#[derive(Serialize, Deserialize, Copy, Clone)]
+pub struct CleanConfig {
+    auto_clean: bool,
+    keep_releases: usize,
+}
+
+impl Default for CleanConfig {
+    fn default() -> CleanConfig {
+        CleanConfig {
+            auto_clean: false,
+            keep_releases: 5,
+        }
+    }
 }

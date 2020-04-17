@@ -13,7 +13,7 @@ mod release;
 
 use crate::error::Result;
 use crate::installation_method::InstallationMethodConfig;
-use crate::project::{Project, ProjectConfig};
+use crate::project::{CleanConfig, Project, ProjectConfig};
 use std::env::current_dir;
 
 #[derive(StructOpt, Debug)]
@@ -40,6 +40,7 @@ enum Cmd {
     InitNoop,
     InitGit,
     InitTar,
+    Clean,
 }
 
 fn main() -> Result<()> {
@@ -62,6 +63,7 @@ fn main() -> Result<()> {
         Cmd::InitNoop => {
             let config = ProjectConfig {
                 installation_method: InstallationMethodConfig::Noop,
+                clean: CleanConfig::default(),
             };
             Project::init(base_dir, &config)?;
             return Ok(());
@@ -72,6 +74,7 @@ fn main() -> Result<()> {
                     source_dir: String::from("sources"),
                     branch: String::from("master"),
                 },
+                clean: CleanConfig::default(),
             };
             Project::init(base_dir, &config)?;
             return Ok(());
@@ -81,6 +84,7 @@ fn main() -> Result<()> {
                 installation_method: InstallationMethodConfig::Tar {
                     filename: String::from("archive.tar.gz"),
                 },
+                clean: CleanConfig::default(),
             };
             Project::init(base_dir, &config)?;
             return Ok(());
@@ -92,6 +96,10 @@ fn main() -> Result<()> {
         Cmd::Rollback => {
             let project = Project::from_dir(base_dir)?;
             project.rollback()
+        }
+        Cmd::Clean => {
+            let project = Project::from_dir(base_dir)?;
+            project.clean()
         }
     }
 }
