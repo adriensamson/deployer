@@ -35,8 +35,8 @@ impl ReleaseState {
         }
         match self {
             ReleaseState::Normal => {}
-            ReleaseState::Rollbacked => vec.insert(0, 'r' as u8),
-            ReleaseState::Installing => vec.insert(0, 'i' as u8),
+            ReleaseState::Rollbacked => vec.insert(0, b'r'),
+            ReleaseState::Installing => vec.insert(0, b'i'),
         }
         OsString::from_vec(vec)
     }
@@ -81,7 +81,7 @@ impl Release<'_> {
     pub fn do_links(&self) -> Result<()> {
         info!("Creating links");
         let links = read_to_string(self.project.base_dir.join("deployer.links"))
-            .unwrap_or(String::from(""));
+            .unwrap_or_else(|_| String::from(""));
         for line in links.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
             match parts.as_slice() {

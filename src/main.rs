@@ -71,7 +71,7 @@ fn main() -> Result<()> {
                 clean: CleanConfig::default(),
             };
             Project::init(base_dir, &config)?;
-            return Ok(());
+            Ok(())
         }
         Cmd::InitGit => {
             let config = ProjectConfig {
@@ -82,7 +82,7 @@ fn main() -> Result<()> {
                 clean: CleanConfig::default(),
             };
             Project::init(base_dir, &config)?;
-            return Ok(());
+            Ok(())
         }
         Cmd::InitTar => {
             let config = ProjectConfig {
@@ -92,7 +92,7 @@ fn main() -> Result<()> {
                 clean: CleanConfig::default(),
             };
             Project::init(base_dir, &config)?;
-            return Ok(());
+            Ok(())
         }
         Cmd::Deploy => {
             let project = Project::from_dir(base_dir)?;
